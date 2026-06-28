@@ -1,0 +1,16 @@
+{
+  "name": "YieldAgent Dev",
+  "image": "mcr.microsoft.com/devcontainers/universal:2-linux",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {},
+    "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
+  "postCreateCommand": "rustup target add wasm32-unknown-unknown && pip install -r agent/requirements.txt -r mock_x402_server/requirements.txt && cd frontend && npm install",
+  "forwardPorts": [3000, 8000, 8080],
+  "portsAttributes": {
+    "3000": { "label": "Frontend" },
+    "8000": { "label": "Mock x402" },
+    "8080": { "label": "Agent WS" }
+  }
+}
