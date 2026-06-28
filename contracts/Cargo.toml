@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "yield_pool",
+    "rwa_oracle",
+    "agent_registry",
+]
+resolver = "2"
+
+[workspace.dependencies]
+odra = { version = "2", default-features = false }

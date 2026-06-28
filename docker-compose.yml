@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  # Mock x402 data source
+  mock-data:
+    build: ./mock_x402_server
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # AI Agent
+  agent:
+    build: ./agent
+    env_file: .env
+    environment:
+      - X402_BASE_URL=http://mock-data:8000
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      - mock-data
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      - agent
+    restart: unless-stopped
