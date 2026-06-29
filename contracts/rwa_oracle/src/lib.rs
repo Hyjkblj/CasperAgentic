@@ -126,6 +126,12 @@ impl RwaOracle {
         actual_value: u64,
         tolerance_basis_points: u64,
     ) {
+        let caller = self.env().caller();
+        assert!(
+            self.authorized_submitters.get(&caller).unwrap_or(false),
+            "Only authorized submitters can verify data"
+        );
+
         let record = self.history.get(&(data_type.clone(), timestamp)).expect("Record not found");
 
         let diff = if record.value > actual_value {
@@ -148,7 +154,7 @@ impl RwaOracle {
             data_type,
             timestamp,
             is_accurate,
-            verifier: self.env().caller(),
+            verifier: caller,
         });
     }
 
