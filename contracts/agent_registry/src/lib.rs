@@ -183,8 +183,16 @@ impl AgentRegistry {
     }
 
     pub fn resolve_operation(&mut self, op_id: u64, outcome: OperationOutcome) {
+        let caller = self.env().caller();
         let mut op = self.operations.get(&op_id).expect("Op not found");
         let agent_addr = op.agent;
+
+        // Only the agent who recorded the operation can resolve it
+        assert!(
+            caller == agent_addr,
+            "Only the operation's agent can resolve it"
+        );
+
         op.outcome = outcome;
         self.operations.set(&op_id, op);
 
