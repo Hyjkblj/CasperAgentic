@@ -106,7 +106,7 @@ class X402Fetcher:
         return results
 
     def _create_payment_proof(self, payment_info: dict) -> str:
-        """Generate x402 payment proof (base64 encoded)."""
+        """Generate x402 payment proof (base64 encoded, cryptographically signed)."""
         payload = {
             "x402Version": 1,
             "scheme": "exact",
@@ -116,9 +116,24 @@ class X402Fetcher:
             "resource": payment_info.get("resource", ""),
             "timestamp": int(time.time()),
         }
-        # In production: sign with Casper SDK
-        # signature = casper_sdk.sign(self.wallet_key, json.dumps(payload))
-        # payload["signature"] = signature
+
+        if not self.wallet_key:
+            raise RuntimeError(
+                "Cannot create payment proof: wallet_key not configured. "
+                "A valid signing key is required to produce cryptographic proof."
+            )
+
+        # Sign the payload with the Casper SDK
+        try:
+            import casper_sdk
+            signature = casper_sdk.sign(self.wallet_key, json.dumps(payload, sort_keys=True))
+            payload["signature"] = signature
+        except ImportError:
+            raise RuntimeError(
+                "casper_sdk is required for payment proof signing. "
+                "Install it and provide a valid wallet_key."
+            )
+
         return base64.b64encode(json.dumps(payload).encode()).decode()
 
     async def close(self):
