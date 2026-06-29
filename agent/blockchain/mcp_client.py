@@ -1,11 +1,61 @@
 """MCP Server client for Casper blockchain interaction."""
 
+import ipaddress
 from dataclasses import dataclass
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import httpx
 
 from config import AgentConfig
+
+
+# Private/internal networks that should never be reached via MCP_SERVER_URL
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _validate_mcp_url(url: str) -> str:
+    """Validate that the MCP server URL is not a private/internal address."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"MCP_SERVER_URL must use http/https scheme, got: {parsed.scheme}")
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError(f"MCP_SERVER_URL has no hostname: {url}")
+    try:
+        resolved = ipaddress.ip_address(hostname)
+    except ValueError:
+        # It's a domain name — resolve it and check the result
+        import socket
+        try:
+            addr_infos = socket.getaddrinfo(hostname, parsed.port or 80)
+        except socket.gaierror:
+            raise ValueError(f"Cannot resolve MCP_SERVER_URL hostname: {hostname}")
+        for family, _type, _proto, _canon, sockaddr in addr_infos:
+            resolved = ipaddress.ip_address(sockaddr[0])
+            for net in _PRIVATE_NETWORKS:
+                if resolved in net:
+                    raise ValueError(
+                        f"MCP_SERVER_URL resolves to private address {resolved}, "
+                        f"which is blocked to prevent SSRF"
+                    )
+        return url
+    for net in _PRIVATE_NETWORKS:
+        if resolved in net:
+            raise ValueError(
+                f"MCP_SERVER_URL points to private address {resolved}, "
+                f"which is blocked to prevent SSRF"
+            )
+    return url
 
 
 @dataclass
@@ -25,7 +75,7 @@ class McpClient:
     """
 
     def __init__(self, config: AgentConfig):
-        self.base_url = config.mcp_server_url
+        self.base_url = _validate_mcp_url(config.mcp_server_url)
         self.config = config
         self.http = httpx.AsyncClient(timeout=30.0)
 
